@@ -7,7 +7,7 @@ app = Flask(__name__)
 def home():
     return jsonify({
         "status": "success",
-        "message": "Free Fire Like API is running successfully!",
+        "message": "Free Fire Like API is running!",
         "test_usage": "/test_like?uid=YOUR_UID&token=YOUR_TOKEN"
     })
 
@@ -27,59 +27,48 @@ def test_like():
             "message": "দয়া করে UID এবং Token উভয়ই প্রদান করুন!"
         }), 400
 
-    # গ্যারেনা অফিশিয়াল এপিআই ইউআরএল
     garena_like_url = "https://client.ind.garena.com/api/player/like"
     
-    # টোকেন ফরম্যাট হ্যান্ডেলিং
     auth_token = token if token.startswith("Bearer ") else f"Bearer {token}"
 
-    # গেম অ্যাপ্লিকেশনের হুবহু হেডার সেটআপ
+    # গ্যারেনা সার্ভারকে বাইপাস করার জন্য আসল ফ্রি ফায়ার অ্যাপের ফিক্সড হেডার
     headers = {
         "Authorization": auth_token,
         "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 11; M2004J19CI Build/RP1A.200720.011)",
         "Content-Type": "application/json; charset=UTF-8",
-        "Connection": "Keep-Alive",
-        "Accept-Encoding": "gzip",
+        "Accept": "application/json",
         "X-Requested-With": "com.dts.freefireth"
     }
     
     payload = {"target_uid": str(uid)}
 
-    # ১. প্রথম চেষ্টা: সরাসরি কানেকশন
     try:
-        response = requests.post(garena_like_url, json=payload, headers=headers, timeout=10)
-        if response.status_code == 200 and response.text.strip():
-            return jsonify({
-                "status": "success",
-                "method": "direct",
-                "http_status": response.status_code,
-                "garena_response": response.json()
-            }), 200
-    except Exception:
-        pass  # সরাসরি ফেইল করলে ব্যাকআপ প্রক্সিতে চলে যাবে
-
-    # ২. দ্বিতীয় চেষ্টা: CORS-Proxy / Alternative Route বাইপাস
-    try:
-        proxy_gateway = f"https://corsproxy.io/?{garena_like_url}"
-        proxy_response = requests.post(proxy_gateway, json=payload, headers=headers, timeout=12)
+        # সেশন ব্যবহার করে সরাসরি রিকোয়েস্ট পাঠানো
+        session = requests.Session()
+        response = session.post(garena_like_url, json=payload, headers=headers, timeout=20)
         
-        if proxy_response.content:
+        # গ্যারেনা থেকে সাকসেস বা যেকোনো রেসপন্স আসলে তা রিটার্ন করবে
+        if response.text and response.text.strip():
+            try:
+                res_json = response.json()
+            except:
+                res_json = {"raw_text": response.text}
+
             return jsonify({
                 "status": "success",
-                "method": "proxy_gateway",
-                "http_status": proxy_response.status_code,
-                "garena_response": proxy_response.json()
+                "http_status": response.status_code,
+                "garena_response": res_json
             }), 200
         else:
             return jsonify({
                 "status": "error",
-                "message": "গ্যারেনা সার্ভার থেকে খালি উত্তর পাওয়া গেছে। টোকেনটি মেয়াদোত্তীর্ণ (expired) হতে পারে।"
+                "message": "গ্যারেনা সার্ভার থেকে কোনো রেসপন্স পাওয়া যায়নি (টোকেন মেয়াদোত্তীর্ণ হতে পারে)।"
             }), 400
 
     except Exception as e:
         return jsonify({
             "status": "error",
-            "message": "গ্যারেনা সার্ভারে সংযোগ করা সম্ভব হয়নি।",
+            "message": "সার্ভার কানেকশন এরর!",
             "details": str(e)
         }), 500
 
