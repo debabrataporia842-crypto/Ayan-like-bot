@@ -30,6 +30,7 @@ def test_like():
     # গ্যারেনা লাইক এন্ডপয়েন্ট
     garena_like_url = "https://client.ind.garena.com/api/player/like"
     
+    # ফ্রি ফায়ার অফিশিয়াল অ্যাপের মতো হেডার্স সেটআপ
     headers = {
         "Authorization": f"Bearer {token}" if not token.startswith("Bearer") else token,
         "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 11; M2004J19CI Build/RP1A.200720.011)",
@@ -41,7 +42,8 @@ def test_like():
     payload = {"target_uid": str(uid)}
 
     try:
-        response = requests.post(garena_like_url, json=payload, headers=headers, timeout=10)
+        # রেন্ডার আইপি ব্লকিং এড়ানোর জন্য প্রক্সি রাউটিং ব্যবহার করা যেতে পারে
+        response = requests.post(garena_like_url, json=payload, headers=headers, timeout=15)
         
         return jsonify({
             "status": "success",
@@ -50,8 +52,12 @@ def test_like():
         }), 200
 
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({
+            "status": "error", 
+            "message": "রেন্ডার সার্ভার থেকে গ্যারেনা ডোমেন কানেক্ট করা যাচ্ছে না।",
+            "details": str(e)
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
-  
+    
